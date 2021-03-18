@@ -1,0 +1,15 @@
+{
+  "type": "module",
+  "name": "blockchain",
+  "version": "1.0.0",
+  "description": "it's a blockchain!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "zack wilder",
+  "license": "ISC",
+  "dependencies": {
+    "sha256": "^0.2.0"
+  }
+}
