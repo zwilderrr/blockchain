@@ -1,11 +1,12 @@
 import sha256 from "sha256";
 
-export class Blockchain {
+export default class Blockchain {
   constructor() {
     this.chain = [];
     // q for pending transactions that haven't been mined
     this.pendingTransactions = [];
-    createNewBlock(0, "0000000", "0");
+    // create genesis block
+    this.createNewBlock(0, "0000000", "0");
   }
 
   // mine the block
