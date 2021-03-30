@@ -50,6 +50,7 @@ export default class Blockchain {
       hash = this.hashBlock(prevBlockHash, currBlockData, nonce);
     }
 
+    // return [hash, nonce]?
     return nonce;
   }
 }
