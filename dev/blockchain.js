@@ -1,10 +1,12 @@
 import sha256 from "sha256";
 
 export default class Blockchain {
-  constructor() {
+  constructor(currentNodeUrl) {
     this.chain = [];
     // q for pending transactions that haven't been mined
     this.pendingTransactions = [];
+    this.currentNodeUrl = currentNodeUrl;
+    this.networkNodes = [];
     // create genesis block
     this.createNewBlock(0, "0000000", "0");
   }
