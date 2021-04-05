@@ -21,9 +21,34 @@ app.get("/blockchain", (req, res) => {
 });
 
 app.post("/transaction", (req, res) => {
-  const { amount, sender, recipient } = req.body;
-  const blockIndex = bc.createNewTransaction(amount, sender, recipient);
+  const newTransaction = req.body;
+  const blockIndex = bc.addTransactionToPendingTransactions(newTransaction);
   res.json(`Transaction to be added to block ${blockIndex}`);
+});
+
+app.post("/transaction/broadcast", (req, res) => {
+  const newTransaction = bc.createNewTransaction(
+    req.body.amount,
+    req.body.sender,
+    req.body.recipient
+  );
+
+  bc.addTransactionToPendingTransactions(newTransaction);
+
+  const regNodePromises = [];
+  bc.networkNodes.forEach(node => {
+    const options = {
+      uri: node + "/transaction",
+      method: "POST",
+      body: newTransaction,
+      json: true,
+    };
+    regNodePromises.push(rp(options));
+  });
+
+  Promise.all(regNodePromises).then(_ =>
+    res.json({ message: "Transaction created and broadcast successfully" })
+  );
 });
 
 app.get("/mine", (req, res) => {
@@ -31,21 +56,60 @@ app.get("/mine", (req, res) => {
   const currBlockData = {
     transactions: bc.pendingTransactions,
     index: index + 1,
-    // anything else
   };
   const nonce = bc.proofOfWork(prevBlockHash, currBlockData);
   const currBlockHash = bc.hashBlock(prevBlockHash, currBlockData, nonce);
 
-  bc.createNewTransaction({
-    amount: REWARD,
-    sender: "00",
-    recipient: nodeAddress,
+  const newBlock = bc.createNewBlock(nonce, prevBlockHash, currBlockHash);
+
+  const reqPromises = [];
+  bc.networkNodes.forEach(node => {
+    const options = {
+      uri: node + "/receive-new-block",
+      method: "POST",
+      body: { newBlock },
+      json: true,
+    };
+
+    reqPromises.push(rp(options));
   });
 
-  // credit account
-  const newBlock = bc.createNewBlock(nonce, prevBlockHash, currBlockHash);
+  Promise.all(reqPromises)
+    .then(_ => {
+      // credit account
+      const options = {
+        uri: bc.currentNodeUrl + "/transaction/broadcast",
+        method: "POST",
+        body: {
+          amount: REWARD,
+          sender: "00",
+          recipient: nodeAddress,
+        },
+        json: true,
+      };
+
+      return rp(options);
+    })
+    .then(_ => {
+      res.json({ message: "New block successfully created!", newBlock });
+    });
   // return last block
-  res.json({ message: "New block successfully created!", newBlock });
+});
+
+app.post("/receive-new-block", (req, res) => {
+  const { newBlock } = req.body;
+  debugger;
+  const lastBlock = bc.getLastBlock();
+  const correctHash = lastBlock.hash === newBlock.prevBlockHash;
+  const correctIndex = lastBlock.index + 1 === newBlock.index;
+
+  // add a check to make sure it hash's correctly
+  if (correctHash && correctIndex) {
+    bc.createNewBlock(newBlock.nonce, newBlock.prevBlockHash, newBlock.hash);
+    res.json({ message: "New block accepted", newBlock });
+  } else {
+    res.json({ message: "New block rejected", newBlock });
+  }
 });
 
 app.post("/register-and-broadcast-node", (req, res) => {
@@ -115,3 +179,30 @@ app.listen(port, () =>
       .join(" ")} Listening on port ${port}!`
   )
 );
+
+/**
+curl --location --request POST 'http://localhost:3001/register-and-broadcast-node' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "newNodeUrl": "http://localhost:3002"
+}'
+
+curl --location --request POST 'http://localhost:3001/register-and-broadcast-node' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "newNodeUrl": "http://localhost:3003"
+}'
+
+curl --location --request POST 'http://localhost:3001/register-and-broadcast-node' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "newNodeUrl": "http://localhost:3004"
+}'
+
+curl --location --request POST 'http://localhost:3001/register-and-broadcast-node' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "newNodeUrl": "http://localhost:3005"
+}'
+
+*/

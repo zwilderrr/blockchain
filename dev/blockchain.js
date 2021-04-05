@@ -1,4 +1,5 @@
 import sha256 from "sha256";
+import { v4 as uuidv4 } from "uuid";
 
 export default class Blockchain {
   constructor(currentNodeUrl) {
@@ -32,9 +33,12 @@ export default class Blockchain {
   }
 
   createNewTransaction(amount, sender, recipient) {
-    const next = { amount, sender, recipient };
-    this.pendingTransactions.push(next);
+    const transactionId = uuidv4().split("-").join("");
+    return { amount, sender, recipient, transactionId };
+  }
 
+  addTransactionToPendingTransactions(transactionObj) {
+    this.pendingTransactions.push(transactionObj);
     return this.getLastBlock().index + 1;
   }
 
