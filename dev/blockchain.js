@@ -59,4 +59,37 @@ export default class Blockchain {
     // return [hash, nonce]?
     return nonce;
   }
+
+  // chain is valid if it's the longest chain
+  isValidChain(blockchain) {
+    // check genesis block
+    const genesisBlock = this.chain[0];
+    if (
+      genesisBlock.nonce !== 0 ||
+      genesisBlock.prevBlockHash !== "0000000" ||
+      genesisBlock.hash !== "0" ||
+      genesisBlock.transactions.length !== 0
+    ) {
+      return false;
+    }
+
+    for (let i = 1; i < blockchain.length; i++) {
+      const curr = blockchain[i];
+      const prev = blockchain[i - 1];
+      const blockData = {
+        transactions: curr.transactions,
+        index: curr.index,
+      };
+      const blockHash = this.hashBlock(prev.hash, blockData, curr.nonce);
+      console.log(blockHash);
+      if (blockHash.slice(0, 4) !== "0000") {
+        return false;
+      }
+      if (curr.prevBlockHash !== prev.hash) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }

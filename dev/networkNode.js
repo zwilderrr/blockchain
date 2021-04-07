@@ -82,7 +82,7 @@ app.get("/mine", (req, res) => {
         method: "POST",
         body: {
           amount: REWARD,
-          sender: "00",
+          sender: "Coinbase",
           recipient: nodeAddress,
         },
         json: true,
@@ -93,7 +93,6 @@ app.get("/mine", (req, res) => {
     .then(_ => {
       res.json({ message: "New block successfully created!", newBlock });
     });
-  // return last block
 });
 
 app.post("/receive-new-block", (req, res) => {
@@ -103,7 +102,6 @@ app.post("/receive-new-block", (req, res) => {
   const correctHash = lastBlock.hash === newBlock.prevBlockHash;
   const correctIndex = lastBlock.index + 1 === newBlock.index;
 
-  // add a check to make sure it hash's correctly
   if (correctHash && correctIndex) {
     bc.createNewBlock(newBlock.nonce, newBlock.prevBlockHash, newBlock.hash);
     res.json({ message: "New block accepted", newBlock });
@@ -167,6 +165,40 @@ app.post("/register-nodes-bulk", (req, res) => {
   });
   res.json({
     message: `New node registered successfully with node ${currentNodeUrl}`,
+  });
+});
+
+app.get("/consensus", (req, res) => {
+  const reqPromises = [];
+  bc.networkNodes.forEach(node => {
+    const options = {
+      uri: node + "/blockchain",
+      method: "GET",
+      json: true,
+    };
+    reqPromises.push(rp(options));
+  });
+
+  Promise.all(reqPromises).then(nodes => {
+    let maxChainLen = bc.chain.length;
+    let newLongestChain = null;
+    let newPendingTrans = null;
+
+    for (let n of nodes) {
+      if (n.chain.length > maxChainLen) {
+        maxChainLen = n.chain.length;
+        newLongestChain = n.chain;
+        newPendingTrans = n.chain.pendingTransactions;
+      }
+    }
+
+    if (newLongestChain && bc.isValidChain(newLongestChain)) {
+      bc.chain = newLongestChain;
+      bc.pendingTransactions = newPendingTrans;
+      return res.json({ message: "Current chain updated", chain: bc.chain });
+    }
+
+    return res.json({ message: "Current chain maintained", chain: bc.chain });
   });
 });
 
